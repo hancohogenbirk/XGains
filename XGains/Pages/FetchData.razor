@@ -1,0 +1,71 @@
+﻿@page "/fetchdata"
+@using Microsoft.AspNetCore.SignalR.Client
+@using XGains.Models.Response.Kraken
+@using System.Text.Json
+@inject NavigationManager NavigationManager
+@inject HttpClient Http
+@implements IAsyncDisposable
+
+<div class="form-group">
+    <label>
+        Current Datetime: @dateTime
+    </label>
+    <br>
+    <label>
+        Kraken raw data: @rawKrakenData
+    </label>
+    <button @onclick="@GetLedger">Get ledger</button>
+    <br>
+    <label>
+        Ledger raw data: @ledgerData
+    </label>
+</div>
+
+@code {
+    private HubConnection clockHubConnection;
+    private HubConnection balanceHubConnection;
+    private DateTime dateTime;
+    private string rawKrakenData;
+    private string ledgerData;
+
+    protected override async Task OnInitializedAsync()
+    {
+        clockHubConnection = new HubConnectionBuilder()
+            .WithUrl(NavigationManager.ToAbsoluteUri("/clockhub"))
+            .Build();
+
+        balanceHubConnection = new HubConnectionBuilder()
+            .WithUrl(NavigationManager.ToAbsoluteUri("/balancehub"))
+            .Build();
+
+
+        //clockHubConnection.On<DateTime>("BroadcastDateTime", x =>
+        //{
+        //    dateTime = x;
+        //    StateHasChanged();
+        //});
+
+        balanceHubConnection.On<string>("BroadcastData", x =>
+        {
+            rawKrakenData = x;
+            StateHasChanged();
+        });
+
+
+        //await clockHubConnection.StartAsync();
+        await balanceHubConnection.StartAsync();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        //await clockHubConnection.DisposeAsync();
+        await balanceHubConnection.DisposeAsync();
+    }
+
+    private async Task GetLedger()
+    {
+        var result = await Http.GetAsync($"api/Kraken/ledger");
+        ledgerData = await result.Content.ReadAsStringAsync();
+        StateHasChanged();
+    }
+}
